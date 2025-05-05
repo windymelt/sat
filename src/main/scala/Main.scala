@@ -8,21 +8,17 @@ import scala.util.boundary
 object Main {
   def main(args: Array[String]): Unit =
     cats(
-      args.toList.init, // TODO: stdin
-      args.last // TODO: stdout
+      args.toList // TODO: stdin
     )
 
   def usage(): Unit = println("not implemented yet")
 
-  def cats(infiles: List[String], outfile: String): Unit =
+  def cats(infiles: List[String]): Unit =
     Zone {
       boundary {
-        val outStream = scalanative.libc.stdio.fopen(
-          unsafe.toCString(outfile),
-          c"wb"
-        )
-        if (outStream == null) then
-          usage()
+        val stdout = scalanative.libc.stdio.stdout
+        if (stdout == null) then
+          Console.err.println("stdout is null")
           boundary.break()
 
         boundary {
@@ -38,12 +34,12 @@ object Main {
             val bufSize = 1024.toCSize
             val buf = unsafe.alloc[unsafe.CVoidPtr](bufSize)
 
-            simpleCat(inStream, outStream, buf, bufSize)
+            simpleCat(inStream, stdout, buf, bufSize)
 
             scalanative.libc.stdio.fclose(inStream)
         }
 
-        scalanative.libc.stdio.fclose(outStream)
+        scalanative.libc.stdio.fclose(stdout)
       }
     }
 
