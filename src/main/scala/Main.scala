@@ -5,26 +5,28 @@ import scala.scalanative.unsafe.Zone
 import scala.scalanative.unsafe.CQuote
 import scala.util.boundary
 
-import mainargs.{main, arg, ParserForMethods, Flag}
+import mainargs.{main, arg, ParserForMethods, Flag, Leftover}
+import scala.scalanative.unsafe.Tag
 
 object Main {
-  @main
-  def run(
-      @arg(positional = true) infiles: List[String]
-  ): Unit =
-    infiles match
-      case Nil =>
-        cats("-" :: Nil)
-      case _ =>
-        cats(infiles)
-
   def main(args: Array[String]): Unit =
     ParserForMethods(this).runOrExit(args)
     sys.exit(0)
 
+  @main
+  def run(
+      @arg(name = "squeeze-blank", short = 's') squeeze: Flag,
+      @arg(positional = true) infiles: Leftover[String]
+  ): Unit =
+    infiles.value match
+      case Seq() =>
+        cats("-" :: Nil, squeeze.value)
+      case fs =>
+        cats(fs.toList, squeeze.value)
+
   def usage(): Unit = println("not implemented yet")
 
-  def cats(infiles: List[String]): Unit =
+  def cats(infiles: List[String], squeeze: Boolean): Unit =
     Zone {
       boundary {
         val stdout = scalanative.libc.stdio.stdout
@@ -43,13 +45,14 @@ object Main {
                 )
 
             if (inStream == null) then
+              Console.err.println(s"cannot open file: $inFile")
               usage()
               boundary.break()
 
             val bufSize = 1024.toCSize
-            val buf = unsafe.alloc[unsafe.CVoidPtr](bufSize)
+            val buf = unsafe.alloc[unsafe.CChar](bufSize)
 
-            copy(inStream, stdout, buf, bufSize)
+            copy(inStream, stdout, buf, bufSize, squeeze)
 
             scalanative.libc.stdio.fclose(inStream)
         }
@@ -61,8 +64,9 @@ object Main {
   def copy(
       inStream: unsafe.Ptr[FILE],
       outStream: unsafe.Ptr[FILE],
-      buf: unsafe.CVoidPtr,
-      bufSize: unsafe.CSize
+      buf: unsafe.CString,
+      bufSize: unsafe.CSize,
+      squeeze: Boolean
   ) =
     var nRead = 1.toCSize
 
@@ -73,10 +77,38 @@ object Main {
         bufSize,
         inStream
       )
+
+      if squeeze then nRead = this.squeeze(buf, nRead)
+
       scalanative.libc.stdio.fwrite(
         buf,
         nRead,
         1.toCSize,
         outStream
       )
+
+  def squeeze(buf: unsafe.CString, bufSize: unsafe.CSize): unsafe.CSize =
+    Zone {
+      var writePos = 0.toCSize
+      var readPos = 0.toCSize
+      var consecutiveNewlines = 0
+      val lf = '\n'
+
+      while (readPos < bufSize) do
+        val currentChar = buf(readPos)
+
+        if (currentChar == lf) then
+          consecutiveNewlines += 1
+          if (consecutiveNewlines <= 2) then
+            buf(writePos) = currentChar
+            writePos += 1.toCSize
+        else
+          consecutiveNewlines = 0
+          buf(writePos) = currentChar
+          writePos += 1.toCSize
+
+        readPos += 1.toCSize
+
+      writePos
+    }
 }
