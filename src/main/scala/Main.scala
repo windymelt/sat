@@ -145,6 +145,8 @@ object Main {
       buf: unsafe.CString,
       bufSize: unsafe.CSize
   ): unsafe.CSize =
+    if bufSize == 0.toCSize then return 0.toCSize
+
     val map = Map(
       'n'.toByte -> '\n',
       't'.toByte -> '\t',
