@@ -17,7 +17,7 @@ nativeConfig ~= { c =>
 
 lazy val root = (project in file("."))
   .settings(
-    name := "cats",
+    name := "sat",
     version := "0.1.0-SNAPSHOT",
     libraryDependencies += "com.lihaoyi" %%% "mainargs" % "0.7.6"
   )
