@@ -14,3 +14,10 @@ nativeConfig ~= { c =>
     .withMode(Mode.debug) // releaseFast
     .withGC(GC.immix) // commix
 }
+
+lazy val root = (project in file("."))
+  .settings(
+    name := "cats",
+    version := "0.1.0-SNAPSHOT",
+    libraryDependencies += "com.lihaoyi" %%% "mainargs" % "0.7.6"
+  )

@@ -5,11 +5,22 @@ import scala.scalanative.unsafe.Zone
 import scala.scalanative.unsafe.CQuote
 import scala.util.boundary
 
+import mainargs.{main, arg, ParserForMethods, Flag}
+
 object Main {
+  @main
+  def run(
+      @arg(positional = true) infiles: List[String]
+  ): Unit =
+    infiles match
+      case Nil =>
+        cats("-" :: Nil)
+      case _ =>
+        cats(infiles)
+
   def main(args: Array[String]): Unit =
-    cats(
-      args.toList // TODO: stdin
-    )
+    ParserForMethods(this).runOrExit(args)
+    sys.exit(0)
 
   def usage(): Unit = println("not implemented yet")
 
@@ -23,10 +34,14 @@ object Main {
 
         boundary {
           for inFile <- infiles do
-            val inStream = scalanative.libc.stdio.fopen(
-              unsafe.toCString(inFile),
-              c"rb"
-            )
+            val inStream = inFile match
+              case "-" => scalanative.libc.stdio.stdin
+              case _ =>
+                scalanative.libc.stdio.fopen(
+                  unsafe.toCString(inFile),
+                  c"rb"
+                )
+
             if (inStream == null) then
               usage()
               boundary.break()
@@ -34,7 +49,7 @@ object Main {
             val bufSize = 1024.toCSize
             val buf = unsafe.alloc[unsafe.CVoidPtr](bufSize)
 
-            simpleCat(inStream, stdout, buf, bufSize)
+            copy(inStream, stdout, buf, bufSize)
 
             scalanative.libc.stdio.fclose(inStream)
         }
@@ -43,7 +58,7 @@ object Main {
       }
     }
 
-  def simpleCat(
+  def copy(
       inStream: unsafe.Ptr[FILE],
       outStream: unsafe.Ptr[FILE],
       buf: unsafe.CVoidPtr,
