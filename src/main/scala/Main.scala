@@ -3,38 +3,48 @@ import scala.scalanative.unsigned.* // for .toCSize
 import scala.scalanative.libc.stdio.FILE
 import scala.scalanative.unsafe.Zone
 import scala.scalanative.unsafe.CQuote
+import scala.util.boundary
 
 object Main {
   def main(args: Array[String]): Unit =
-    cat(args(0), args(1))
+    cats(
+      args.toList.init, // TODO: stdin
+      args.last // TODO: stdout
+    )
 
   def usage(): Unit = println("not implemented yet")
 
-  def cat(inFile: String, outFile: String): Unit =
+  def cats(infiles: List[String], outfile: String): Unit =
     Zone {
-      val inStream = scalanative.libc.stdio.fopen(
-        unsafe.toCString(inFile),
-        c"rb"
-      )
-      if (inStream == null) then
-        usage()
-        return
+      boundary {
+        val outStream = scalanative.libc.stdio.fopen(
+          unsafe.toCString(outfile),
+          c"wb"
+        )
+        if (outStream == null) then
+          usage()
+          boundary.break()
 
-      val outStream = scalanative.libc.stdio.fopen(
-        unsafe.toCString(outFile),
-        c"wb"
-      )
-      if (outStream == null) then
-        usage()
-        return
+        boundary {
+          for inFile <- infiles do
+            val inStream = scalanative.libc.stdio.fopen(
+              unsafe.toCString(inFile),
+              c"rb"
+            )
+            if (inStream == null) then
+              usage()
+              boundary.break()
 
-      val bufSize = 1024.toCSize
-      val buf = unsafe.alloc[unsafe.CVoidPtr](bufSize)
+            val bufSize = 1024.toCSize
+            val buf = unsafe.alloc[unsafe.CVoidPtr](bufSize)
 
-      simpleCat(inStream, outStream, buf, bufSize)
+            simpleCat(inStream, outStream, buf, bufSize)
 
-      scalanative.libc.stdio.fclose(inStream)
-      scalanative.libc.stdio.fclose(outStream)
+            scalanative.libc.stdio.fclose(inStream)
+        }
+
+        scalanative.libc.stdio.fclose(outStream)
+      }
     }
 
   def simpleCat(
