@@ -1,4 +1,4 @@
-scalaVersion := "3.3.3" // A Long Term Support version.
+scalaVersion := "3.3.8" // A Long Term Support version.
 
 enablePlugins(ScalaNativePlugin)
 
@@ -21,3 +21,5 @@ lazy val root = (project in file("."))
     version := "0.1.0-SNAPSHOT",
     libraryDependencies += "com.lihaoyi" %%% "mainargs" % "0.7.6"
   )
+
+scalacOptions ++= Seq("-Yfuture-lazy-vals", "-java-output-version:11")
